@@ -2,24 +2,47 @@ const fs = require('fs')
 const puppeteer = require('puppeteer')
 const pageList = require('./pageList.js')
 
-async function getScreenShot (url) {
+async function getScreenShot (url,index) {
   const fileData = await getDomain(url)
   await getSavePath(fileData.path)
-  console.log(fileData)
+
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
-  await page.goto(url);
+  try{
+    await page.goto(url);
+  } catch(e) {
+    await throwError('url読み込みエラー', e)
+    await browser.close();
+    return new Promise((reject) => {
+      reject('Error!')
+    })
+  }
+
   await page.setViewport({
           width: 1280,
           height: 1000
         });
-  await page.screenshot({ path: fileData.path + fileData.name + '.png', fullPage: true })
+  try {
+    await page.screenshot({ path: fileData.path + fileData.name + '.png', fullPage: true })
+  } catch(e) {
+    await browser.close();
+    await throwError('ファイル書き出しエラー', e)
+    return new Promise((reject) => {
+      reject('Error!')
+    })
+  }
+
   await browser.close();
-  console.log(fileData)
 
   return new Promise((resolve) => {
+    console.log(index)
     resolve('Done!')
   })
+}
+
+async function throwError(message, e) {
+  console.log(message)
+  console.log(e)
 }
 
 async function getDomain(url) {
@@ -33,7 +56,7 @@ async function getDomain(url) {
   const filePath = data.reduce((a, b) => a + b +'/', '')
   const fileData = {
     name :  fileName,
-    path : filePath
+    path : 'data/' + filePath
   }
   return fileData
 }
@@ -42,14 +65,14 @@ async function getSavePath(path) {
   if (!fs.existsSync(path)) {
     fs.mkdirSync(path);
   }
-  return
 }
 
 
 pageList.item.forEach((url, index) => {
-  getScreenShot(url).then((result) => {
+  getScreenShot(url,index).then((result) => {
     console.log(result +':'+ url)
   }).catch((e)=> {
     console.log('Error!:'+ e)
+    process.exit(1);
   })
 })
